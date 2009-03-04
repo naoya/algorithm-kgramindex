@@ -9,11 +9,11 @@ use List::Util qw/min/;
 use Params::Validate qw/validate_pos/;
 
 sub distance {
-    my ($w1, $w2) = validate_pos(@_, 1, 1);
+    my ($s1, $s2) = validate_pos(@_, 1, 1);
     my $m = [];
 
-    my @s1 = split //, $w1;
-    my @s2 = split //, $w2;
+    my @s1 = split //, $s1;
+    my @s2 = split //, $s2;
 
     for (my $i = 0; $i <= @s1; $i++) {
         $m->[$i]->[0] = $i;

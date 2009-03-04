@@ -16,13 +16,14 @@ use IO::Handle;
 use Algorithm::KgramIndex;
 
 my $index = Algorithm::KgramIndex->new({
-    edit_distance_threshold => 5
+    string_metrics_threshold => 0.8,
+    total_df                 => 12_382_045,
 });
 
 while (<>) {
     chomp;
-    my ($kid, $word) = split /\t/;
-    $index->add_keyword($kid => decode_utf8 $word);
+    my ($term, $df) = split /\t/;
+    $index->add_term(decode_utf8($term), $df);
 }
 
 while (1) {
@@ -32,8 +33,17 @@ while (1) {
     chomp $q;
 
     my $res = $index->search( decode_utf8 $q );
-    for ($res->extract_all) {
-        say sprintf "%s, ED:%d", $_->{keyword}, $_->{edit_distance};
+    for (my $i = 0; $i < 30; $i++) {
+        my $p = $res->extract_first or last;
+
+        say sprintf(
+            "%s, dist:%f, df: %d, idf: %f, score: %f",
+            $p->{term},
+            $p->{distance},
+            $p->{df},
+            $p->{idf},
+            $p->{score}
+        );
     }
 
     $res->clear;

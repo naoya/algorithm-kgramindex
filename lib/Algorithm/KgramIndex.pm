@@ -16,11 +16,11 @@ sub new {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
 
-    $self->index        = {};
-    $self->df           = {};
+    $self->index = {};
+    $self->df    = {};
     # $self->lexicon      = {};
     # $self->bigram_count = {};
-    $self->kgram        = Text::Kgram->new({ K => 2 });
+    $self->kgram  = Text::Kgram->new({ K => 2 });
     $self->string_metrics_threshold ||= 0;
 
     return $self;
@@ -67,9 +67,18 @@ sub search {
 
                 $seen{$term}++;
 
-                if ($seen{$term} == 2) {
-                    push @result, $term;
-                    $got = 1;
+                ## query が 2 文字の場合は bigram が 1 つしかない
+                ## その場合は共起は考えない
+                if (@query_tokens == 1) {
+                    if ($seen{$term} == 1) {
+                        push @result, $term;
+                        $got = 1;
+                    }
+                } else {
+                    if ($seen{$term} == 2) {
+                        push @result, $term;
+                        $got = 1;
+                    }
                 }
             }
 

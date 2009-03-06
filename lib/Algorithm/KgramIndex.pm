@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use base qw/Class::Accessor::Lvalue::Fast/;
 
-__PACKAGE__->mk_accessors(qw/index kgram bigram_count string_metrics_threshold lexicon df total_df/);
+__PACKAGE__->mk_accessors(qw/index kgram bigram_count string_metrics_threshold lexicon df total_df kakasi/);
 
 use Heap::Simple::XS;
 use Params::Validate qw/validate_pos/;
@@ -11,6 +11,8 @@ use Params::Validate qw/validate_pos/;
 use Text::Kgram;
 # use Algorithm::Levenshtein qw/distance/;
 use Text::JaroWinkler qw/distance/;
+use Text::Kakasi;
+use List::Util qw/max/;
 
 sub new {
     my $class = shift;
@@ -23,12 +25,18 @@ sub new {
     $self->kgram  = Text::Kgram->new({ K => 2 });
     $self->string_metrics_threshold ||= 0;
 
+    $self->kakasi = Text::Kakasi->new;
+    $self->kakasi->set('-outf8');
+    $self->kakasi->set('-iutf8');
+    # $self->kakasi->set('-KH', '-JH');
+    $self->kakasi->set('-KH');
+
     return $self;
 }
 
 sub add_term {
     my ($self, $term, $df) = validate_pos(@_, 1, 1, 1);
-    my @tokens = $self->kgram->tokenize(lc $term);
+    my @tokens = $self->kgram->tokenize( $self->kakasi->get(lc $term) );
 
     # if (not exists $self->bigram_count->{$id}) {
     #    $self->bigram_count->{$id} = scalar @tokens;
@@ -45,7 +53,7 @@ sub add_term {
 sub search {
     my ($self, $q) = @_;
     my @result;
-    my @query_tokens = $self->kgram->tokenize(lc $q);
+    my @query_tokens = $self->kgram->tokenize( $self->kakasi->get(lc $q) );
 
     my $number_of_bigrams_in_query = scalar @query_tokens;
     my $number_of_postings_hits    = 0;
@@ -104,13 +112,18 @@ sub search {
 
         my $res = {
             term     => $_,
-            distance => distance(lc $q, lc $_),
+            distance => distance(
+                $self->kakasi->get(lc $q),
+                $self->kakasi->get(lc $_),
+            ),
         };
 
         if ( $res->{distance} >= $self->string_metrics_threshold ) {
-            $res->{df}    = $self->df->{$_} + 1,
-            $res->{idf}   = log($self->total_df/$res->{df}),
-            $res->{score} = $res->{distance} * (1 / $res->{idf});
+        # if ( $res->{distance} <= $self->string_metrics_threshold ) {
+            $res->{df}    = $self->df->{$_} + 1;
+            $res->{idf}   = log($self->total_df/$res->{df});
+            $res->{score} = $res->{distance} * ( 1 / $res->{idf} );
+            # $res->{score} = 1 / ($res->{distance} + 1) * (1 / $res->{idf});
 
             $heap->key_insert($res->{score} , $res);
         }
